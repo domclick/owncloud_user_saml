@@ -1,7 +1,7 @@
 INTRODUCTION
 ============
 
-This App provide SAML authentication support based on the simpleSAMLphp SP software.
+This App provide SAML authentication support based on the simpleSAMLphp SP software. Compatible with OwnCloud v 9.1.x.
 
 
 INSTALLATION
