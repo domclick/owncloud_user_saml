@@ -40,11 +40,12 @@ if (OCP\App::isEnabled('user_saml')) {
 	OC_User::useBackend( 'SAML' );
 
 	OC::$CLASSPATH['OC_USER_SAML_Hooks'] = 'user_saml/lib/hooks.php';
-	OCP\Util::connectHook('OC_User', 'post_createUser', 'OC_USER_SAML_Hooks', 'post_createUser');
-	OCP\Util::connectHook('OC_User', 'post_login', 'OC_USER_SAML_Hooks', 'post_login');
-	OCP\Util::connectHook('OC_User', 'logout', 'OC_USER_SAML_Hooks', 'logout');
+	// register listeners for Events
+	\OC::$server->getUserSession()->listen('\OC\User', 'postCreateUser', ['OC_USER_SAML_Hooks', 'post_createUser']);
+	\OC::$server->getUserSession()->listen('\OC\User', 'postLogin', ['OC_USER_SAML_Hooks', 'post_login']);
+	\OC::$server->getUserSession()->listen('\OC\User', 'logout', ['OC_USER_SAML_Hooks', 'logout']);
 
-	$forceLogin = OCP\Config::getAppValue('user_saml', 'saml_force_saml_login', false)
+    $forceLogin = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_force_saml_login', false)
 		&& shouldEnforceAuthentication();
 
 
@@ -52,11 +53,15 @@ if (OCP\App::isEnabled('user_saml')) {
 
 		require_once 'user_saml/auth.php';
 
-		if (!OC_User::login('', '')) {
+		if (!\OC::$server->getUserSession()->login('', '')) {
 			$error = true;
 			OCP\Util::writeLog('saml','Error trying to authenticate the user', OCP\Util::DEBUG);
 		}
-		
+
+        $request = new \OC\AppFramework\Http\Request([], null, \OC::$server->getConfig());
+        $uid = \OC::$server->getUserSession()->getUser()->getUID();
+        \OC::$server->getUserSession()->createSessionToken($request, $uid, $uid, null);
+
 		if (isset($_GET["linktoapp"])) {
 			$path = OC::$WEBROOT . '/?app='.$_GET["linktoapp"];
             if (isset($_GET["linktoargs"])) {

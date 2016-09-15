@@ -20,7 +20,6 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
 class OC_USER_SAML extends OC_User_Backend {
 
 	// cached settings
@@ -40,30 +39,30 @@ class OC_USER_SAML extends OC_User_Backend {
 	public $auth;
 
 
-	public function __construct() {
-		$this->sspPath = OCP\Config::getAppValue('user_saml', 'saml_ssp_path', '');
-		$this->spSource = OCP\Config::getAppValue('user_saml', 'saml_sp_source', '');
-		$this->forceLogin = OCP\Config::getAppValue('user_saml', 'saml_force_saml_login', false);
-		$this->autocreate = OCP\Config::getAppValue('user_saml', 'saml_autocreate', false);
-		$this->updateUserData = OCP\Config::getAppValue('user_saml', 'saml_update_user_data', false);
-		$this->defaultGroup = OCP\Config::getAppValue('user_saml', 'saml_default_group', '');
-		$this->protectedGroups = explode (',', preg_replace('/\s+/', '', OCP\Config::getAppValue('user_saml', 'saml_protected_groups', '')));
-		$this->usernameMapping = explode (',', preg_replace('/\s+/', '', OCP\Config::getAppValue('user_saml', 'saml_username_mapping', '')));
-		$this->mailMapping = explode (',', preg_replace('/\s+/', '', OCP\Config::getAppValue('user_saml', 'saml_email_mapping', '')));
-		$this->displayNameMapping = explode (',', preg_replace('/\s+/', '', OCP\Config::getAppValue('user_saml', 'saml_displayname_mapping', '')));
-		$this->quotaMapping = explode (',', preg_replace('/\s+/', '', OCP\Config::getAppValue('user_saml', 'saml_quota_mapping', '')));
-		$this->defaultQuota = OCP\Config::getAppValue('user_saml', 'saml_default_quota', '');
-		$this->groupMapping = explode (',', preg_replace('/\s+/', '', OCP\Config::getAppValue('user_saml', 'saml_group_mapping', '')));
+    public function __construct() {
+		$this->sspPath = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_ssp_path', '');
+		$this->spSource = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_sp_source', '');
+		$this->forceLogin = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_force_saml_login', false);
+		$this->autocreate = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_autocreate', false);
+		$this->updateUserData = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_update_user_data', false);
+		$this->defaultGroup = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_default_group', '');
+		$this->protectedGroups = explode(',', preg_replace('/\s+/', '', \OC::$server->getConfig()->getAppValue('user_saml', 'saml_protected_groups', '')));
+		$this->usernameMapping = explode(',', preg_replace('/\s+/', '', \OC::$server->getConfig()->getAppValue('user_saml', 'saml_username_mapping', '')));
+		$this->mailMapping = explode(',', preg_replace('/\s+/', '', \OC::$server->getConfig()->getAppValue('user_saml', 'saml_email_mapping', '')));
+		$this->displayNameMapping = explode(',', preg_replace('/\s+/', '', \OC::$server->getConfig()->getAppValue('user_saml', 'saml_displayname_mapping', '')));
+		$this->quotaMapping = explode(',', preg_replace('/\s+/', '', \OC::$server->getConfig()->getAppValue('user_saml', 'saml_quota_mapping', '')));
+		$this->defaultQuota = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_default_quota', '');
+		$this->groupMapping = explode(',', preg_replace('/\s+/', '', \OC::$server->getConfig()->getAppValue('user_saml', 'saml_group_mapping', '')));
 
 		if (!empty($this->sspPath) && !empty($this->spSource)) {
-			include_once $this->sspPath."/lib/_autoload.php";
+			include_once $this->sspPath . "/lib/_autoload.php";
 
 			$this->auth = new SimpleSAML_Auth_Simple($this->spSource);
 
 			if (isset($_COOKIE["user_saml_logged_in"]) AND $_COOKIE["user_saml_logged_in"] AND !$this->auth->isAuthenticated()) {
 				unset($_COOKIE["user_saml_logged_in"]);
 				setcookie("user_saml_logged_in", null, -1);
-				OCP\User::logout();
+				\OC::$server->getUserSession()->logout();
 			}
 		}
 	}
@@ -71,40 +70,40 @@ class OC_USER_SAML extends OC_User_Backend {
 
 	public function checkPassword($uid, $password) {
 
-		if(!$this->auth->isAuthenticated()) {
+		if (!$this->auth->isAuthenticated()) {
 			return false;
 		}
 
 		$attributes = $this->auth->getAttributes();
 
-		foreach($this->usernameMapping as $usernameMapping) {
+		foreach ($this->usernameMapping as $usernameMapping) {
 			if (array_key_exists($usernameMapping, $attributes) && !empty($attributes[$usernameMapping][0])) {
 				$uid = $attributes[$usernameMapping][0];
-				OCP\Util::writeLog('saml','Authenticated user '.$uid, OCP\Util::DEBUG);
-				if(!OCP\User::userExists($uid) && $this->autocreate) {
+				OCP\Util::writeLog('saml', 'Authenticated user ' . $uid, OCP\Util::DEBUG);
+				if (!\OC::$server->getUserManager()->userExists($uid) && $this->autocreate) {
 					return $this->createUser($uid);
 				}
 				return $uid;
 			}
 		}
 
-		OCP\Util::writeLog('saml','Not found attribute used to get the username at the requested saml attribute assertion', OCP\Util::DEBUG);
-		$secure_cookie = OC_Config::getValue("forcessl", false);
-		$expires = time() + OC_Config::getValue('remember_login_cookie_lifetime', 60*60*24*15);
+		OCP\Util::writeLog('saml', 'Not found attribute used to get the username at the requested saml attribute assertion', OCP\Util::DEBUG);
+		$secure_cookie = \OC::$server->getConfig()->getSystemValue("forcessl", false);
+		$expires = time() + \OC::$server->getConfig()->getSystemValue('remember_login_cookie_lifetime', 60 * 60 * 24 * 15);
 		setcookie("user_saml_logged_in", "1", $expires, '', '', $secure_cookie);
 
 		return false;
 	}
 
 	private function createUser($uid) {
-                if (preg_match( '/[^a-zA-Z0-9 _\.@\-]/', $uid)) {
-                        OCP\Util::writeLog('saml','Invalid username "'.$uid.'", allowed chars "a-zA-Z0-9" and "_.@-" ',OCP\Util::DEBUG);
-                        return false;
-                } else {
-                        $random_password = OCP\Util::generateRandomBytes(64);
-                        OCP\Util::writeLog('saml','Creating new user: '.$uid, OCP\Util::DEBUG);
-                        \OC::$server->getUserManager()->createUser($uid, $random_password);
-                        return $uid;
-                }
-        }
+		if (preg_match('/[^a-zA-Z0-9 _\.@\-]/', $uid)) {
+			OCP\Util::writeLog('saml', 'Invalid username "' . $uid . '", allowed chars "a-zA-Z0-9" and "_.@-" ', OCP\Util::DEBUG);
+			return false;
+		} else {
+			$random_password = (new \OC\Security\SecureRandom())->generate(64);
+			OCP\Util::writeLog('saml', 'Creating new user: ' . $uid, OCP\Util::DEBUG);
+			\OC::$server->getUserManager()->createUser($uid, $random_password);
+			return $uid;
+		}
+	}
 }

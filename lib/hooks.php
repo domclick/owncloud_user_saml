@@ -25,20 +25,21 @@
  */
 class OC_USER_SAML_Hooks {
 
-	static public function post_login($parameters) {
+	static public function post_login(\OC\User\User $user, $password) {
 		$uid = '';
-		$userid = $parameters['uid'];
+		$userid = $user->getUID();
 		$samlBackend = new OC_USER_SAML();
 
 		if ($samlBackend->auth->isAuthenticated()) {
+
 			$attributes = $samlBackend->auth->getAttributes();
 
 			$usernameFound = false;
-			foreach($samlBackend->usernameMapping as $usernameMapping) {
+			foreach ($samlBackend->usernameMapping as $usernameMapping) {
 				if (array_key_exists($usernameMapping, $attributes) && !empty($attributes[$usernameMapping][0])) {
 					$usernameFound = true;
 					$uid = $attributes[$usernameMapping][0];
-					OCP\Util::writeLog('saml','Authenticated user '.$uid,OCP\Util::DEBUG);
+					OCP\Util::writeLog('saml', 'Authenticated user ' . $uid, OCP\Util::DEBUG);
 					break;
 				}
 			}
@@ -54,8 +55,7 @@ class OC_USER_SAML_Hooks {
 		return false;
 	}
 
-	static public function post_createUser($parameters) {
-		$uid = $parameters['uid'];
+	static public function post_createUser($uid, $password) {
 		$samlBackend = new OC_USER_SAML();
 		if (!$samlBackend->updateUserData) {
 			// Ensure that user data will be filled atleast once
@@ -64,13 +64,13 @@ class OC_USER_SAML_Hooks {
 		}
 	}
 
-	static public function logout($parameters) {
+	static public function logout() {
 		$samlBackend = new OC_USER_SAML();
 		if ($samlBackend->auth->isAuthenticated()) {
 			OCP\Util::writeLog('saml', 'Executing SAML logout', OCP\Util::DEBUG);
 			unset($_COOKIE["SimpleSAMLAuthToken"]);
-			setcookie('SimpleSAMLAuthToken', '', time()-3600, \OC::$WEBROOT);
-			setcookie('SimpleSAMLAuthToken', '', time()-3600, \OC::$WEBROOT . '/');
+			setcookie('SimpleSAMLAuthToken', '', time() - 3600, \OC::$WEBROOT);
+			setcookie('SimpleSAMLAuthToken', '', time() - 3600, \OC::$WEBROOT . '/');
 			$samlBackend->auth->logout();
 		}
 		return true;
@@ -105,7 +105,7 @@ function get_user_attributes($uid, $samlBackend) {
 	}
 	if (empty($result['groups']) && !empty($samlBackend->defaultGroup)) {
 		$result['groups'] = array($samlBackend->defaultGroup);
-		OCP\Util::writeLog('saml','Using default group "'.$samlBackend->defaultGroup.'" for the user: '.$uid, OCP\Util::DEBUG);
+		OCP\Util::writeLog('saml', 'Using default group "' . $samlBackend->defaultGroup . '" for the user: ' . $uid, OCP\Util::DEBUG);
 	}
 	$result['protected_groups'] = $samlBackend->protectedGroups;
 
@@ -117,21 +117,21 @@ function get_user_attributes($uid, $samlBackend) {
 				break;
 			}
 		}
-		OCP\Util::writeLog('saml','Current quota: "'.$result['quota'].'" for user: '.$uid, OCP\Util::DEBUG);
+		OCP\Util::writeLog('saml', 'Current quota: "' . $result['quota'] . '" for user: ' . $uid, OCP\Util::DEBUG);
 	}
 	if (empty($result['quota']) && !empty($samlBackend->defaultQuota)) {
 		$result['quota'] = $samlBackend->defaultQuota;
-		OCP\Util::writeLog('saml','Using default quota ('.$result['quota'].') for user: '.$uid, OCP\Util::DEBUG);
+		OCP\Util::writeLog('saml', 'Using default quota (' . $result['quota'] . ') for user: ' . $uid, OCP\Util::DEBUG);
 	}
 
-	return $result;	
+	return $result;
 }
 
 
-function update_user_data($uid, $attributes=array(), $just_created=false) {
+function update_user_data($uid, $attributes = array(), $just_created = false) {
 	OC_Util::setupFS($uid);
-	OCP\Util::writeLog('saml','Updating data of the user: '.$uid, OCP\Util::DEBUG);
-	if(isset($attributes['email'])) {
+	OCP\Util::writeLog('saml', 'Updating data of the user: ' . $uid, OCP\Util::DEBUG);
+	if (isset($attributes['email'])) {
 		update_mail($uid, $attributes['email']);
 	}
 	if (isset($attributes['groups'])) {
@@ -143,42 +143,42 @@ function update_user_data($uid, $attributes=array(), $just_created=false) {
 	if (isset($attributes['quota'])) {
 		update_quota($uid, $attributes['quota']);
 	}
-}	
+}
 
 
 function update_mail($uid, $email) {
 	$config = \OC::$server->getConfig();
 	if ($email != $config->getUserValue($uid, 'settings', 'email', '')) {
 		$config->setUserValue($uid, 'settings', 'email', $email);
-		OCP\Util::writeLog('saml','Set email "'.$email.'" for the user: '.$uid, OCP\Util::DEBUG);
+		OCP\Util::writeLog('saml', 'Set email "' . $email . '" for the user: ' . $uid, OCP\Util::DEBUG);
 	}
 }
 
 
-function update_groups($uid, $groups, $protectedGroups=array(), $just_created=false) {
+function update_groups($uid, $groups, $protectedGroups = array(), $just_created = false) {
 
-	if(!$just_created) {
+	if (!$just_created) {
 		$old_groups = OC_Group::getUserGroups($uid);
-		foreach($old_groups as $group) {
-			if(!in_array($group, $protectedGroups) && !in_array($group, $groups)) {
-				OC_Group::removeFromGroup($uid,$group);
-				OCP\Util::writeLog('saml','Removed "'.$uid.'" from the group "'.$group.'"', OCP\Util::DEBUG);
+		foreach ($old_groups as $group) {
+			if (!in_array($group, $protectedGroups) && !in_array($group, $groups)) {
+				OC_Group::removeFromGroup($uid, $group);
+				OCP\Util::writeLog('saml', 'Removed "' . $uid . '" from the group "' . $group . '"', OCP\Util::DEBUG);
 			}
 		}
 	}
 
-	foreach($groups as $group) {
-		if (preg_match( '/[^a-zA-Z0-9 _\.@\-]/', $group)) {
-			OCP\Util::writeLog('saml','Invalid group "'.$group.'", allowed chars "a-zA-Z0-9" and "_.@-" ',OCP\Util::DEBUG);
-		}
-		else {
-			if (!OC_Group::inGroup($uid, $group)) {
-				if (!OC_Group::groupExists($group)) {
-					OC_Group::createGroup($group);
-					OCP\Util::writeLog('saml','New group created: '.$group, OCP\Util::DEBUG);
+	foreach ($groups as $group) {
+		if (preg_match('/[^a-zA-Z0-9 _\.@\-]/', $group)) {
+			OCP\Util::writeLog('saml', 'Invalid group "' . $group . '", allowed chars "a-zA-Z0-9" and "_.@-" ', OCP\Util::DEBUG);
+		} else {
+
+			if (!\OC::$server->getGroupManager()->isInGroup($uid, $group)) {
+				if (!\OC::$server->getGroupManager()->groupExists($group)) {
+					\OC::$server->getGroupManager()->createGroup($group);
+					OCP\Util::writeLog('saml', 'New group created: ' . $group, OCP\Util::DEBUG);
 				}
-				OC_Group::addToGroup($uid, $group);
-				OCP\Util::writeLog('saml','Added "'.$uid.'" to the group "'.$group.'"', OCP\Util::DEBUG);
+				\OC::$server->getGroupManager()->get($group)->addUser($uid);
+				OCP\Util::writeLog('saml', 'Added "' . $uid . '" to the group "' . $group . '"', OCP\Util::DEBUG);
 			}
 		}
 	}
@@ -191,6 +191,6 @@ function update_display_name($uid, $displayName) {
 
 function update_quota($uid, $quota) {
 	if (!empty($quota)) {
-		\OCP\Config::setUserValue($uid, 'files', 'quota', \OCP\Util::computerFileSize($quota));
+		\OC::$server->getConfig()->setUserValue($uid, 'files', 'quota', \OCP\Util::computerFileSize($quota));
 	}
 }

@@ -21,14 +21,12 @@
  *
  */
 
-	OCP\App::checkAppEnabled('user_saml');
+$sspPath = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_ssp_path', '');
+$spSource = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_sp_source', '');
+$autocreate = \OC::$server->getConfig()->getAppValue('user_saml', 'saml_autocreate', false);
 
-	$sspPath = OCP\Config::getAppValue('user_saml', 'saml_ssp_path', '');
-	$spSource = OCP\Config::getAppValue('user_saml', 'saml_sp_source', '');
-	$autocreate = OCP\Config::getAppValue('user_saml', 'saml_autocreate', false);
-
-	if (!empty($sspPath) && !empty($spSource)) {
-		include_once $sspPath."/lib/_autoload.php";
-		$auth = new SimpleSAML_Auth_Simple($spSource);
-		$auth->requireAuth();
-	}
+if (!empty($sspPath) && !empty($spSource)) {
+	include_once $sspPath . "/lib/_autoload.php";
+	$auth = new SimpleSAML_Auth_Simple($spSource);
+	$auth->requireAuth();
+}
